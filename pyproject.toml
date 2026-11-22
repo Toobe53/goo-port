@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goo-port"
+version = "0.1.0"
+description = "Portable re-implementation of DillonGoo GOO Engine features for Blender 5.2: Node groups + Blender add-on + external CLI/GUI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "GOO Port contributors" }]
+keywords = ["blender", "npr", "goo-engine", "light-groups", "eevee"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Environment :: Plugins",
+  "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+
+[project.scripts]
+goo = "goo.__main__:main"
+
+[tool.setuptools]
+packages = ["goo", "goo.scripts", "goo_npr", "goo_npr.nodes", "goo_npr.ui", "goo_npr.tools"]
+
+[tool.setuptools.package-data]
+"goo_npr" = ["blender_manifest.toml"]

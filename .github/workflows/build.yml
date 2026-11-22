@@ -1,0 +1,161 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+            blender_url: https://download.blender.org/release/Blender5.2/blender-5.2.3-windows-x64.zip
+            blender_label: blender-5.2.3-windows-x64
+          - os: macos-latest
+            name: macos-arm64
+            blender_url: https://download.blender.org/release/Blender5.2/blender-5.2.3-macos-arm64.dmg
+            blender_label: blender-5.2.3-macos-arm64
+          - os: ubuntu-latest
+            name: linux-x64
+            blender_url: https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz
+            blender_label: blender-5.2.3-linux-x64
+
+    env:
+      PYTHONUNBUFFERED: "1"
+      # The GUI test needs a real desktop session; it is covered by the local
+      # Windows test suite. CI checks the headless CLI, add-on and renders.
+      GOO_SKIP_GUI: "1"
+      GOO_BLENDER_VERSION: "5.2.3"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python build tools
+        shell: bash
+        run: python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install Blender (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "blender.zip"
+          Invoke-WebRequest -Uri "${{ matrix.blender_url }}" -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath (Join-Path $env:RUNNER_TEMP "blender") -Force
+          $exe = Get-ChildItem (Join-Path $env:RUNNER_TEMP "blender") -Recurse -Filter blender.exe |
+            Select-Object -First 1
+          if (-not $exe) { throw "blender.exe not found after extraction" }
+          $path = $exe.FullName -replace '\\', '/'
+          "GOO_BLENDER=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+
+      - name: Install Blender (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="$RUNNER_TEMP/blender.dmg"
+          mount="$RUNNER_TEMP/blender-mnt"
+          curl -L --retry 3 --fail -o "$dmg" "${{ matrix.blender_url }}"
+          mkdir -p "$mount"
+          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount" -quiet
+          test -x "$mount/Blender.app/Contents/MacOS/Blender"
+          echo "GOO_BLENDER=$mount/Blender.app/Contents/MacOS/Blender" >> "$GITHUB_ENV"
+
+      - name: Install Blender (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libegl1 \
+            libsm6 libice6 libxkbcommon0 libgomp1 xz-utils xvfb xauth
+          curl -L --retry 3 --fail -o "$RUNNER_TEMP/blender.tar.xz" "${{ matrix.blender_url }}"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          blender="$RUNNER_TEMP/${{ matrix.blender_label }}/blender"
+          chmod +x "$blender"
+          test -x "$blender"
+          echo "GOO_BLENDER=$blender" >> "$GITHUB_ENV"
+          echo "LIBGL_ALWAYS_SOFTWARE=1" >> "$GITHUB_ENV"
+
+      - name: Verify Blender executable
+        shell: bash
+        run: '"$GOO_BLENDER" --version'
+
+      - name: Build release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python -m goo bundle -o dist/goo_npr-0.1.0.zip
+          python -m goo bundle --source -o dist/goo-port-0.1.0-src.zip
+          python -m pip wheel --no-deps --no-build-isolation --wheel-dir dist .
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          dist = Path("dist")
+          names = [
+              "goo_npr-0.1.0.zip",
+              "goo_port-0.1.0-py3-none-any.whl",
+              "goo-port-0.1.0-src.zip",
+          ]
+          missing = [name for name in names if not (dist / name).is_file()]
+          if missing:
+              raise SystemExit(f"missing release artifacts: {missing}")
+          lines = []
+          for name in names:
+              digest = hashlib.sha256((dist / name).read_bytes()).hexdigest()
+              lines.append(f"{digest}  {name}")
+          (dist / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("\n".join(lines))
+          PY
+
+      - name: Verify release archives
+        shell: bash
+        run: python -m goo verify --json
+
+      - name: Portable path tests
+        shell: bash
+        run: python tests/test_paths.py
+
+      - name: CLI and Blender end-to-end tests (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: xvfb-run -a python tests/test_cli.py
+
+      - name: CLI and Blender end-to-end tests (Windows/macOS)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: python tests/test_cli.py
+
+      - name: Add-on test suite (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: xvfb-run -a "$GOO_BLENDER" --background --factory-startup --python tests/test_addon.py
+
+      - name: Add-on test suite (Windows/macOS)
+        if: runner.os != 'Linux'
+        shell: bash
+        run: '"$GOO_BLENDER" --background --factory-startup --python tests/test_addon.py'
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: goo-port-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
