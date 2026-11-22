@@ -176,6 +176,12 @@ goo_port-0.1.0-py3-none-any.whl   50 entries   171,718 B
 sha256 373bec1fa2f128b53198cad0e59d70341d00ba9976c9abb4613c72cb2ec85145
 ```
 
+Wheel archives are not byte-reproducible because setuptools stores timestamps, so the
+size/hash above is a reference build only. The CI Linux build of the same tree, for
+example, is **184,324 B** (sha256
+`c13e81e33e7e2b7d01830ffaede832e90b6cae0a3ffc4235e5b1ba8f09d5ff65`); always use the
+`SHA256SUMS` attached to the release you downloaded.
+
 The wheel was then installed into an empty `--target` directory with the host Python
 **3.12.14** and exercised from `%TEMP%` with only `PYTHONPATH` set: `python -m goo
 version --json` reports `ok: true`, the installed `goo_npr` path and Blender 5.2.3;
@@ -196,6 +202,39 @@ and the `Camera / 相机` + `View layer / 视图层` fields, then exited 0. No s
 checkout was on `sys.path`. The installed wheel also contains `goo/verify.py`:
 from `%TEMP%` it re-hashed the release `dist/` (3 artifacts, 27/50/66 entries)
 with `goo verify --dist <repo>/dist --json` and exited 0.
+
+### 3.3 GitHub Actions / 三平台 CI
+
+Workflow: `.github/workflows/build.yml` (**Build and test / 构建与测试**). Every push to
+`main` runs three jobs:
+
+| Job | Runner | Blender | Result |
+| --- | --- | --- | --- |
+| `windows-x64` | `windows-latest` | 5.2.3 zip + Mesa llvmpipe | success, 1m48s |
+| `linux-x64` | `ubuntu-latest` + `xvfb-run` | 5.2.3 tar.xz | success, 1m22s |
+| `macos-arm64` | `macos-26` arm64 | 5.2.3 dmg | success, ~1m26s |
+
+Each job builds the add-on zip, wheel and source zip, runs `goo verify`, the 13 path
+tests and 17 CLI tests (one GUI self-test skipped with `GOO_SKIP_GUI=1`), then the
+Blender add-on suite (**82 checks**), and uploads `goo-port-<platform>` with all
+three artifacts plus `SHA256SUMS`.
+
+The Windows runner has no GPU, so the workflow installs Mesa3D
+(`ssciwr/setup-mesa-dist-win@v3`, version `26.3.0`, system-wide deployment) and sets
+`GALLIUM_DRIVER=llvmpipe`, `LIBGL_ALWAYS_SOFTWARE=1`,
+`MESA_GL_VERSION_OVERRIDE=4.5`, `MESA_GLSL_VERSION_OVERRIDE=450`. Before Mesa, the five
+EEVEE render cases died with `3221225477` (0xC0000005); with Mesa, all pass.
+
+Run `45039972528` (head `0d8adb5`) is green on all three platforms. Linux artifacts:
+
+```
+goo_npr-0.1.0.zip               96,131 B  87a6194d811b351a7c5f8146d177025d80ea6cc9f65f4497c52ec34bdfe86234
+goo_port-0.1.0-py3-none-any.whl 184,324 B c13e81e33e7e2b7d01830ffaede832e90b6cae0a3ffc4235e5b1ba8f09d5ff65
+goo-port-0.1.0-src.zip          367,793 B 1333fb3749eb00a2f499fc99dc0eefb4f914d5250379c675b91baa26bf3cc450
+```
+
+ZIP bytes differ slightly across operating systems because file-mode metadata differs;
+the contents are identical. Use the `SHA256SUMS` from the same platform archive.
 
 ## 4. Compositor / 合成器
 

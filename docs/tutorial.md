@@ -37,7 +37,8 @@ GOO NPR 把 GOO Engine 4.4 中与 NPR 渲染相关的功能，以**纯 Python** 
 
 #### 3.1 推荐：安装发布 zip
 
-1. 从 GitHub Releases 或构建产物下载 `goo_npr-0.1.0.zip`。
+1. 从 GitHub Releases 下载 `goo_npr-0.1.0.zip`；也可以在 **Actions ▸ build** 的
+   `goo-port-<platform>` Artifacts 中下载该 zip。
 2. 打开 Blender 5.2，选择 **Edit ▸ Preferences ▸ Add-ons**。
 3. 点击右上角下拉菜单，选择 **Install from Disk…**。
 4. 选中 `goo_npr-0.1.0.zip`，勾选启用 **GOO NPR**。
@@ -132,13 +133,13 @@ Light Groups 使用的是 Blender 5.2 原生的 light linking（`Light.light_lin
 
 #### 5.1 基本命令
 
-在源码目录直接运行 `python -m goo ...`；如果已 `pip install .`，也可以直接运行 `goo ...`。
+在源码目录直接运行 `python -m goo ...`；也可以安装 wheel 后直接运行 `goo ...`：
 
 ```bash
+# 任选其一：源码目录运行，或安装构建好的 wheel
 python -m goo version
-python -m goo doctor
-python -m goo nodes
-python -m goo config --show
+python -m pip install goo_port-0.1.0-py3-none-any.whl
+goo version
 ```
 
 `--json` 适合脚本消费；机器 JSON 始终是 ASCII 安全的，中文控制台不会因 cp936/GBK
@@ -267,6 +268,9 @@ blender --background --factory-startup --python tests/test_addon.py
 [验证报告](verification.md)。源码包是自包含的：解压后设置 `PYTHONPATH` 即可运行
 `python -m goo`，并能用 `goo bundle` / `goo bundle --source` 复现发布包。
 
+GitHub Actions 在 Windows x64、Linux x64、macOS arm64 上构建并运行 Blender 集成测试；
+在 **Actions ▸ build** 页面可下载 `goo-port-<platform>` 产物，正式版本见 **Releases**。
+
 ### 9. 与 GOO Engine 的差异
 
 本项目是**近似层**，不是 GOO Engine 的完整渲染器分支。49 项可比行为全部有落点
@@ -313,7 +317,8 @@ refraction buffers) is explicitly listed as N/A in the compatibility document.
 
 #### 3.1 Recommended: install the release zip
 
-1. Download `goo_npr-0.1.0.zip` from GitHub Releases or the build artifacts.
+1. Download `goo_npr-0.1.0.zip` from **GitHub Releases**, or from the
+   `goo-port-<platform>` artifact of the **Actions ▸ build** workflow.
 2. Open Blender 5.2 and go to **Edit ▸ Preferences ▸ Add-ons**.
 3. Open the top-right dropdown and choose **Install from Disk…**.
 4. Select `goo_npr-0.1.0.zip` and enable **GOO NPR**.
@@ -412,13 +417,13 @@ These tools operate on the current selection or active object; select something 
 
 #### 5.1 Basics
 
-Run `python -m goo ...` from the repository root, or `goo ...` after `pip install .`.
+Run `python -m goo ...` from the repository root, or install the wheel and run `goo ...`:
 
 ```bash
+# Either run from the source tree, or install the built wheel:
 python -m goo version
-python -m goo doctor
-python -m goo nodes
-python -m goo config --show
+python -m pip install goo_port-0.1.0-py3-none-any.whl
+goo version
 ```
 
 `--json` is intended for scripts; machine JSON is ASCII-safe, so Chinese console code pages
@@ -549,6 +554,10 @@ Baseline: **82 add-on checks**, **17 CLI tests**, **13 path tests**. See the
 [verification report](verification.md) for measured evidence. The source archive is
 self-contained: unzip it, set `PYTHONPATH`, and `python -m goo` plus both
 `goo bundle` variants work without the original checkout.
+
+GitHub Actions builds and runs the Blender integration tests on Windows x64, Linux x64 and
+macOS arm64. Download the `goo-port-<platform>` artifact from **Actions ▸ build**, or use the
+tagged files under **Releases**.
 
 ### 9. Differences from GOO Engine
 

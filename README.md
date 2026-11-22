@@ -1,5 +1,10 @@
 # GOO NPR — GOO Engine 4.4 features for Blender 5.2
 
+[![build](https://github.com/Toobe53/goo-port/actions/workflows/build.yml/badge.svg)](https://github.com/Toobe53/goo-port/actions/workflows/build.yml)
+
+**New here?** Start with the bilingual [user tutorial](docs/tutorial.md), then use the
+[CLI reference](docs/cli.md) for exact options.
+
 Portable, pure-Python re-implementation of the features DillonGoo Studios added to
 **GOO Engine 4.4** (a Blender fork that renders with EEVEE Legacy and omits Cycles).
 The port targets **Blender 5.2** only and is split into two parts:
