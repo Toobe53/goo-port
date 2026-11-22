@@ -39,6 +39,7 @@ HINT_ADDON = "Directory containing goo_npr (default: this checkout) / 包含 goo
 # ---------------------------------------------------------------------------
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Run the CLI and return the process exit code."""
+    _configure_stdio()
     raw = list(sys.argv[1:] if argv is None else argv)
     json_mode = "--json" in raw
     raw = [arg for arg in raw if arg != "--json"]
@@ -72,6 +73,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "verify" and not payload.get("ok"):
         return 2
     return EXIT_OK
+
+
+def _configure_stdio() -> None:
+    """Keep legacy Windows code pages from crashing on bilingual human output.
+
+    Machine-readable ``--json`` output is ASCII-safe already.  Human output
+    contains Chinese labels, and a cp1252 console cannot encode them; replace
+    unencodable characters instead of raising ``UnicodeEncodeError``.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (OSError, ValueError):  # pragma: no cover - closed/odd streams
+            pass
 
 
 def _stderr(message: str) -> None:

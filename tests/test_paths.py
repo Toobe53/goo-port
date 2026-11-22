@@ -14,7 +14,7 @@ import os
 import sys
 import tempfile
 import unittest
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +32,9 @@ def _posix(path: Path) -> str:
 
 class UserConfigPathTest(unittest.TestCase):
     def test_windows_appdata(self) -> None:
-        with mock.patch.object(config_module.os, "name", "nt"), mock.patch.dict(
+        with mock.patch.object(config_module, "Path", PureWindowsPath), mock.patch.object(
+            config_module.os, "name", "nt"
+        ), mock.patch.dict(
             os.environ, {"APPDATA": r"C:\Users\Case\AppData\Roaming"}, clear=False
         ):
             path = config_module.user_config_path()
@@ -42,8 +44,10 @@ class UserConfigPathTest(unittest.TestCase):
         )
 
     def test_windows_localappdata_fallback(self) -> None:
-        with mock.patch.object(config_module.os, "name", "nt"), mock.patch.object(
-            config_module, "home_directory", return_value=Path("/Users/Case")
+        with mock.patch.object(config_module, "Path", PureWindowsPath), mock.patch.object(
+            config_module.os, "name", "nt"
+        ), mock.patch.object(
+            config_module, "home_directory", return_value=PureWindowsPath("/Users/Case")
         ), mock.patch.dict(os.environ, {"LOCALAPPDATA": ""}, clear=False), mock.patch.object(
             config_module.os, "environ", {"LOCALAPPDATA": ""}
         ):
