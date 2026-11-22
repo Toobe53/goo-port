@@ -37,6 +37,12 @@ jobs:
       # Windows test suite. CI checks the headless CLI, add-on and renders.
       GOO_SKIP_GUI: "1"
       GOO_BLENDER_VERSION: "5.2.3"
+      # GitHub's Windows runner has no GPU. Mesa's llvmpipe gives Blender a
+      # software OpenGL 4.5 context so EEVEE can render in CI.
+      GALLIUM_DRIVER: llvmpipe
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      MESA_GL_VERSION_OVERRIDE: "4.5"
+      MESA_GLSL_VERSION_OVERRIDE: "450"
 
     steps:
       - uses: actions/checkout@v4
@@ -91,6 +97,13 @@ jobs:
           test -x "$blender"
           echo "GOO_BLENDER=$blender" >> "$GITHUB_ENV"
           echo "LIBGL_ALWAYS_SOFTWARE=1" >> "$GITHUB_ENV"
+
+      - name: Install Mesa software OpenGL (Windows)
+        if: runner.os == 'Windows'
+        uses: ssciwr/setup-mesa-dist-win@v3
+        with:
+          version: '26.3.0'
+          deployment-choice: '1'
 
       - name: Verify Blender executable
         shell: bash
